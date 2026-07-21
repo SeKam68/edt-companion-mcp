@@ -150,7 +150,7 @@ OSGi-плагин для 1C:EDT 2025.2, который поднимает лок
 | Tool | Зачем | Ключевые параметры |
 |---|---|---|
 | `get_object_help` | Справка метаданного объекта: `synonym` (ru/en EMap), `comment`, и **HTML-страницы из Help.pages** (тот же mechanism, что `MdHelpContentFileEditor` в EDT UI). | `projectName`, `fqn`, опц. `includeContent=false` |
-| `get_platform_docs` | Substring-поиск по дереву платформенной документации 1С (`HelpResourceLocatorService` для compatibilityMode проекта). При отсутствии docs в EDT — graceful failure с подсказкой использовать `1C-docs-mcp`. | `query`, опц. `projectName`, `lang=ru|en`, `limit` |
+| `get_platform_docs` | Substring-поиск по дереву платформенной справки 1С (Синтакс-помощник) — типы, методы, свойства, глобальные функции. Источник — `satree.xml` версионного EDT-бандла `com._1c.g5.v8.dt.platform.doc_v8_X_Y`, выбранного по CompatibilityMode проекта (результат соответствует именно той платформе). Возвращает title, путь предков, `isCatalog`, `childCount`. | `query`, опц. `projectName`, `lang=ru\|en`, `limit` |
 
 ### XDTO (2)
 
