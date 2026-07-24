@@ -1,7 +1,7 @@
 # edt-companion-mcp
 
 HTTP MCP-сервер внутри 1C:EDT. OSGi-плагин поднимает локальный сервер на
-`http://127.0.0.1:6868/mcp` (JSON-RPC 2.0 + MCP) и отдаёт **39 инструментов**,
+`http://127.0.0.1:6868/mcp` (JSON-RPC 2.0 + MCP) и отдаёт **43 инструментов**,
 через которые AI-агент (Claude Code, Cursor, Cline, любой MCP-клиент) видит то
 же, что видит сам EDT: типизированную метамодель, BSL-код с несохранёнными
 правками открытых редакторов, структуру форм, СКД, XDTO, а также Eclipse Debug
@@ -42,23 +42,7 @@ API для запуска и отладки yaxunit-тестов.
 
 ## Установка
 
-### Вариант A — update-site (рекомендуется)
-
-Устанавливайте и обновляйте плагин штатным механизмом Eclipse:
-
-1. В 1C:EDT: **Help → Install New Software… → Add… → Location:**
-
-   ```
-   https://sekam68.github.io/edt-companion-mcp/
-   ```
-
-2. Отметьте категорию **edt-companion-mcp**, нажмите **Next**, примите
-   лицензию, дождитесь установки и перезапустите 1C:EDT.
-3. Обновления в дальнейшем — через **Help → Check for Updates**.
-
-### Вариант B — drop-in jar
-
-Плагин также поставляется готовым jar-файлом в разделе
+Плагин поставляется готовым jar-файлом (drop-in bundle) в разделе
 [Releases](../../releases).
 
 1. Скачайте `io.github.sekam68.edt.companion.mcp-<версия>.jar` из последнего
@@ -71,32 +55,19 @@ API для запуска и отладки yaxunit-тестов.
 
    (например `C:/Program Files/1C/1CE/components/1c-edt-2025.2.5+2-x86_64/dropins/`).
 3. Перезапустите 1C:EDT.
+4. Проверьте, что сервер поднялся:
 
-### Проверка
-
-```
-curl http://127.0.0.1:6868/health
-→ {"status":"ok","tools":39}
-```
+   ```
+   curl http://127.0.0.1:6868/health
+   → {"status":"ok","tools":43}
+   ```
 
 Если `/health` не отвечает — EDT не запущен, либо bundle не активировался
 (при первой установке помогает разовый запуск EDT с ключом `-clean`).
 
-### Порт
-
-Порт по умолчанию — `127.0.0.1:6868`. Проще всего сменить интерактивно:
-**Window → Preferences → edt-companion-mcp → TCP-порт HTTP-сервера** — значение
-применяется сразу, без перезапуска EDT. Для CI/автозапуска порт можно задать
-VM-аргументом `-Dedt.yaxunit.mcp.port=<порт>` (в `1cedt.ini` после `-vmargs`)
-или переменной окружения `EDT_YAXUNIT_MCP_PORT` — они имеют приоритет над
-настройкой из окна. Как поднять два EDT с разными проектами одновременно —
-см. [docs/multi-instance.md](docs/multi-instance.md).
-
-Опционально можно включить индикатор в статусной строке EDT
-(**Preferences → edt-companion-mcp → «Показывать версию и порт в статусной
-строке EDT»**): в трее появляется `⚙ <порт>`, а версия и URL сервера — во
-всплывающей подсказке. Полезно, когда открыто несколько экземпляров EDT на
-разных портах.
+Порт по умолчанию — `127.0.0.1:6868`. Изменить можно без перекомпиляции через
+VM-аргумент `-Dedt.yaxunit.mcp.port=<порт>` (в `1cedt.ini` после `-vmargs`) или
+переменную окружения `EDT_YAXUNIT_MCP_PORT`. System property имеет приоритет.
 
 ## Подключение AI-агента
 
@@ -119,22 +90,54 @@ MCP-клиента):
 через `tools/list`; человекочитаемый справочник — в
 [docs/llm-guide.md](docs/llm-guide.md).
 
-## Каталог инструментов (39)
+## Защита персональных данных (PII-редактор)
+
+Опциональный output-фильтр: перед отправкой результата любого инструмента
+агенту (в т.ч. в облачную модель) содержимое прогоняется через набор правил,
+и обнаруженные ПДн заменяются на маску `[redacted]` или коррелируемый псевдоним
+`Физлицо#<hmac>` (одинаковый вход → один токен, без раскрытия и без хранения
+таблицы соответствий). По умолчанию **выключен** — включается осознанно на
+базах с реальными ПДн.
+
+Включается одним флагом в **Window → Preferences → edt-companion-mcp** —
+**«Фильтровать персональные данные (ПДн) в ответах инструментов»** (применяется
+сразу, перезапуск EDT не нужен). Остальное работает на разумных умолчаниях:
+встроенный набор правил под 152-ФЗ (email, телефон, СНИЛС, ИНН) и случайный ключ
+псевдонимайзера на запуск.
+
+Флаг можно перекрыть переменной окружения `EDT_COMPANION_PII`
+(`on`/`1`/`true`/`yes`) — приоритетнее галочки, удобно для CI/headless. Для
+продвинутых сценариев доступны (только через env, в UI не выведены):
+`EDT_COMPANION_PII_SALT` — постоянная соль для стабильных псевдонимов между
+сессиями; `EDT_COMPANION_PII_RULES` — путь к своему JSON-набору правил.
+
+Текущая версия применяет правила по **содержимому значения** (regex): email,
+телефон `+7…`, СНИЛС, ИНН, паспортные/длинные числовые последовательности.
+Формат правила: `{ "enabled", "scope": "VALUE", "countable", "representation", "regex" }`
+(`countable:false` — плоская маска, `countable:true` — псевдоним).
+
+## Каталог инструментов (43)
 
 | Группа | Инструменты |
 |---|---|
 | Workspace и среда | `list_workspace_projects`, `list_applications`, `show_edt_version` |
 | Чтение BSL | `read_module_source`, `read_method_source`, `get_module_structure`, `search_in_code`, `resolve_symbol` |
 | Запись BSL | `write_module_source` |
-| Метаданные (чтение) | `list_metadata_objects`, `list_modules`, `get_object_details`, `get_form_layout`, `get_config_properties` |
-| Анализ | `find_object_references`, `get_method_call_hierarchy`, `get_validation_errors` |
+| Метаданные (чтение) | `list_metadata_objects`, `list_modules`, `get_object_details`, `get_form_layout`, `get_form_screenshot`, `get_config_properties` |
+| Анализ | `find_object_references`, `get_method_call_hierarchy`, `get_validation_errors`, `get_check_description` |
 | Редактирование метаданных | `edit_metadata` (единый диспетчер операций) |
 | XDTO | `read_xdto_package`, `edit_xdto_package` |
-| Сборка и ИБ | `rebuild_project`, `sync_database` |
+| Сборка и ИБ | `rebuild_project`, `sync_database`, `get_event_log`, `refresh_workspace` |
 | Запросы | `validate_query` |
 | Документация платформы | `get_object_help`, `get_platform_docs` |
 | yaxunit | `run_yaxunit`, `get_yaxunit_report` |
 | Отладка | `addBreakpoint`, `removeBreakpoint`, `listBreakpoints`, `getState`, `getVariables`, `evaluate`, `resume`, `suspend`, `stepOver`, `stepInto`, `stepReturn`, `terminate` |
+
+> **`get_form_screenshot`** требует native-buffered рендера форм: добавьте в
+> `1cedt.ini` после строки `-vmargs` две строки
+> `-DnativeFormLayoutRender=true` и `-DnativeFormBufferedLayoutRender=true`
+> и перезапустите EDT. Без них буфер изображения пуст (форма рисуется в
+> нативное окно). Остальные инструменты в этих аргументах не нуждаются.
 
 ## Когда не подходит
 
@@ -143,3 +146,4 @@ MCP-клиента):
 - **Редактирование тела существующего BSL-метода** — плагин читает модули, ищет
   по коду, находит ссылки и дописывает заглушки обработчиков, но тело
   процедуры правит сам агент своими file-tools.
+

@@ -1,6 +1,6 @@
 # edt-companion-mcp — обзор
 
-**HTTP MCP-сервер внутри 1C:EDT.** OSGi-bundle, JDK-builtin `HttpServer` на `127.0.0.1:6868`, JSON-RPC 2.0 + MCP-protocol. 39 инструментов: метаданные, BSL-навигация, рефакторинг-search, валидация, редактирование форм/реквизитов/прав/СКД/XDTO, headless обновление ИБ, запуск и **отладка** yaxunit-тестов.
+**HTTP MCP-сервер внутри 1C:EDT.** OSGi-bundle, JDK-builtin `HttpServer` на `127.0.0.1:6868`, JSON-RPC 2.0 + MCP-protocol. 43 инструмента: метаданные, BSL-навигация, рефакторинг-search, валидация, редактирование форм/реквизитов/прав/СКД/XDTO, headless обновление ИБ, запуск и **отладка** yaxunit-тестов, офлайн-описание проверок EDT, чтение журнала регистрации, PNG-скриншот форм. Опциональный PII-фильтр результатов.
 
 ## Для кого
 
@@ -15,6 +15,8 @@
 - **Headless обновление ИБ** (`sync_database`) — без модального диалога «Обновить конфигурацию?», тот же `IApplicationManager.update` что EDT, плюс resolve `ACTIVE_SHELL` через `Display.syncExec`.
 - **YAxUnit-цикл**: `run_yaxunit` + `get_yaxunit_report` как отдельные tools — фоновый процесс не прерывается HTTP-таймаутом MCP-клиента, агент стартует тест в `wait_seconds=0` и потом отдельно ждёт отчёт. Авто-`sync_database` перед launch'ем подавляет модалку. Нормализация имени расширения (EDT-проект → `Configuration.name`).
 - **Отладка** через стандартный Eclipse Debug API: BP с условием/hitCount, `getState`/`getVariables`/`evaluate`, `stepOver`/`stepInto`/`stepReturn`/`resume`/`suspend`/`terminate`. То же ядро, что использует UI EDT — yaxunit-target виден.
+- **Диагностика и визуализация**: `get_check_description` — офлайн-описание проверки EDT-валидации по `checkId` (стандарты 1С, код наружу не уходит); `get_event_log` — чтение журнала регистрации файловой ИБ (ошибки рантайма после `run_yaxunit`, без запуска базы); `get_form_screenshot` — PNG-рендер формы из WYSIWYG-редактора; `refresh_workspace` — подхват внешних изменений диска (после `git checkout` через shell).
+- **Защита ПДн**: опциональный output-фильтр — перед отправкой агенту содержимое прогоняется через набор правил, персональные данные заменяются на маску/коррелируемый псевдоним (включается флагом в настройках плагина).
 
 ## Что характеризует подход
 
@@ -22,6 +24,7 @@
 - **Не пишет XML руками.** `edit_metadata` идёт через `MdClassFactory` + `IBmTransaction.attachTopObject` + `IModelObjectFactory.fillDefaultReferences`, формы — через `IFormGenerator` + `IFormFieldGenerator`, права — `RightsFactory` + donor-pattern. `IBmModelManager.forceExport` синхронно пишет `.mdo`.
 - **Поддерживает Extension-проекты**: `withProject`/`withProjectWritable` API в `MetadataAccess` принимает и `IConfigurationProject`, и `IExtensionProject`. Все операции `edit_metadata` работают над обоими типами проектов; примитивные типы в реквизитах расширения резолвятся через базовый проект.
 - **Workspace-wide find_object_references**: сканирует все открытые cf+cfe-проекты, dedupe по `projectName::sourceUri::feature`, каждая ссылка несёт `projectName`+`filePath`.
+- **Замечания от пользователей пишутся в `feedback/`** прямо в репо и закрываются точечными правками — см. историю в `git log feedback/`.
 
 ## Полный AI-цикл
 
@@ -41,7 +44,7 @@ get_validation_errors        // что плохо
 
 ## Установка
 
-См. [README.md](../README.md) → разделы «Установка» и «Подключение AI-агента». Подключается в `.mcp.json` проекта как `http://127.0.0.1:6868/mcp`. Health: `curl http://127.0.0.1:6868/health` → `{"status":"ok","tools":39}`.
+См. [README.md](../README.md) → разделы «Установка» и «Подключение AI-агента». Подключается в `.mcp.json` проекта как `http://127.0.0.1:6868/mcp`. Health: `curl http://127.0.0.1:6868/health` → `{"status":"ok","tools":43}`.
 
 ## Когда не подходит
 

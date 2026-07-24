@@ -4,7 +4,7 @@
 
 ## Что это
 
-OSGi-плагин для 1C:EDT 2025.2, который поднимает локальный MCP-сервер `http://127.0.0.1:6868/mcp` и отдаёт **39 инструментов** для работы с открытой в EDT конфигурацией 1С: чтение метаданных и BSL-кода, навигация, поиск, валидация, редактирование метаданных и BSL-модулей, запуск и отладка yaxunit-тестов, проверка запросов, поиск в платформенной документации.
+OSGi-плагин для 1C:EDT 2025.2, который поднимает локальный MCP-сервер `http://127.0.0.1:6868/mcp` и отдаёт **43 инструментов** для работы с открытой в EDT конфигурацией 1С: чтение метаданных и BSL-кода, навигация, поиск, валидация, редактирование метаданных и BSL-модулей, запуск и отладка yaxunit-тестов, проверка запросов, поиск в платформенной документации.
 
 Инструменты работают **только над тем workspace, который сейчас открыт в EDT** — отдельного процесса 1С/EDT плагин не поднимает. Если EDT закрыт — `/health` недоступен.
 
@@ -24,7 +24,7 @@ OSGi-плагин для 1C:EDT 2025.2, который поднимает лок
 }
 ```
 
-Протокол — JSON-RPC 2.0. Поддержаны методы `initialize`, `tools/list`, `tools/call`. Проверка живости: `GET http://127.0.0.1:6868/health` → `{"status":"ok","tools":39}`.
+Протокол — JSON-RPC 2.0. Поддержаны методы `initialize`, `tools/list`, `tools/call`. Проверка живости: `GET http://127.0.0.1:6868/health` → `{"status":"ok","tools":43}`.
 
 ### Два экземпляра EDT с разными проектами
 
@@ -53,7 +53,7 @@ OSGi-плагин для 1C:EDT 2025.2, который поднимает лок
 | `list_applications` | 1С Run Configurations типа RuntimeClient (`applicationId` для запуска). | — |
 | `show_edt_version` | Версии EDT/Eclipse/Java, открытые проекты с `kind`, `compatibilityMode`, `baseProject` для расширений. | — |
 
-### Метаданные — чтение (5)
+### Метаданные — чтение (6)
 
 | Tool | Зачем | Ключевые параметры |
 |---|---|---|
@@ -62,6 +62,7 @@ OSGi-плагин для 1C:EDT 2025.2, который поднимает лок
 | `get_object_details` | Полная структура: реквизиты с типами, ТЧ, измерения/ресурсы, формы, команды, макеты, модули. Скалярные флаги карточки объекта (отдаются с учётом дефолта платформы, даже когда тега нет в `.mdo`): `fullTextSearch`, `useStandardCommands`, `includeInCommandInterface`, `dataLockControlMode`; для Document — `numberType`/`numberLength`/`numberPeriodicity`/`postInPrivilegedMode`/...; для Catalog — `codeType`/`codeLength`/`hierarchical`/`hierarchyType`/...; ссылочные списки `owners`/`basedOn` (массив FQN). Для регистров — `informationRegisterPeriodicity`/`writeMode`/`registerType`/... (от них зависит виртуальная таблица `СрезПоследних`/`Остатки`/...). Для Catalog/ChartOfCharacteristicTypes/ChartOfAccounts/ChartOfCalculationTypes — `predefinedItems` (дерево). Через FQN. | `projectName`, `fqn` |
 | `get_config_properties` | Шапка конфигурации: vendor, version, compatibilityMode, scriptVariant + `objectCounts` по всем типам. | `projectName` |
 | `get_form_layout` | Headless-дамп управляемой формы (без открытия редактора): `attributes`, `items` рекурсивно, `formCommands`, `handlers`. | `projectName`, `fqn` (родитель), `formName`, опц. `format=tree|json`, `includeHandlers`, `maxDepth` |
+| `get_form_screenshot` | **PNG-рендер** формы из WYSIWYG-редактора EDT (визуально «увидеть» раскладку — перекрытия, пустоты, реальные размеры) в дополнение к структурному `get_form_layout`. Открывает `.form` в редакторе, ждёт асинхронную загрузку (до ~минуты) и снимает буфер. Ответ — MCP `image` (PNG base64) + текстовый спутник (`width`/`height`/`renderedForm`). **Требует** активного workbench (не headless) и native-buffered рендера: в `1cedt.ini` после `-vmargs` добавить `-DnativeFormLayoutRender=true` и `-DnativeFormBufferedLayoutRender=true`, иначе буфер пуст. | `projectName`, `fqn` (родитель), `formName` |
 
 ### Навигация по BSL-коду (5)
 
@@ -81,13 +82,14 @@ OSGi-плагин для 1C:EDT 2025.2, который поднимает лок
 |---|---|---|
 | `write_module_source` | Запись BSL-модуля через **shared Eclipse text buffer** — попадает в тот же dirty buffer, который видит открытый Xtext-редактор EDT. То есть: если у пользователя открыт редактор и в нём несохранённые правки, наша запись применяется поверх dirty state (а не перезатирает диск конфликтом). 6 режимов: `replace` (полная замена/создание файла), `append`, `insertBefore`/`insertAfter` (по `line`, 1-based), `replaceLines` (`startLine`+`endLine` inclusive), `searchReplace` (literal find→text + `expectMatches` контроль безопасности — по умолчанию ровно 1 совпадение; **переводы строк `find`/`text` нормализуются к делимитеру модуля** — многострочный LF-фрагмент из read-инструментов корректно матчится к CRLF-модулю и не подмешивает LF). Параметр `save` (default `true`) — commit buffer на диск; `false` оставляет в editor dirty state, пользователь сохранит Ctrl+S. `dryRun` для what-if. В ответе `oldLength`/`newLength`/`startLine`/`endLine`/`dirty`/`saved`/`created`. **Tier: PRO**. | `modulePath`, `mode`, `text`, опц. `line`/`startLine`+`endLine`/`find`+`expectMatches`/`save`/`dryRun` |
 
-### Анализ кода (3)
+### Анализ кода (4)
 
 | Tool | Зачем | Ключевые параметры |
 |---|---|---|
 | `find_object_references` | Где используется метаданный объект. Сканирует **все** открытые Configuration и Extension проекты workspace, агрегирует matches с полями `projectName` / `filePath` / `ownerFqn`. Покрывает: BM cross-refs от самого target и его children (StandardAttribute/Attribute/TabularSection — для `Right.objectAttribute`), composite-types (`<types>CatalogRef.X</types>` через UUID-scan `TypeItem`). `kindFilter=code|metadata` — фильтр. | `objectName`, опц. `projectName` (origin для поиска target), `kindFilter`, `limit` |
 | `get_method_call_hierarchy` | Callers/callees BSL-метода до depth=5. | `projectName`, `methodName`, опц. `modulePath`, `direction=callers|callees` |
 | `get_validation_errors` | Маркеры EDT-валидации (НЕ Eclipse problems). Принимает и Configuration-, и Extension-проекты. | `projectName`, опц. `scope=project|object`, `fqn`, `minSeverity=BLOCKER|CRITICAL|MAJOR|MINOR|TRIVIAL` |
+| `get_check_description` | Человекочитаемое описание проверки EDT по `checkId` (из `get_validation_errors`) или короткому коду `SU..`: `title`, `description`, `severity`, `type`, `shortUid`, имена параметров. Источник — встроенный `ICheckRepository`, всё офлайн (код наружу не уходит, в отличие от `v8std_explain_diagnostics`). Для BSL compile-маркеров (Syntax/undefined) описания в репозитории нет. | `checkId`, опц. `projectName` |
 
 ### Валидация запросов (1)
 
@@ -123,12 +125,14 @@ OSGi-плагин для 1C:EDT 2025.2, который поднимает лок
 - **Настройки СКД (variant.settings):** `addSettingsVariant`, `addSettingsSelectedField`, `addSettingsFilter`, `addSettingsOrder`, `addSettingsGroup`, `addSettingsTable`, `addSettingsChart`, `addConditionalAppearance`, `addAutoField`, `setOutputParameter`, `setVariantSettings` (bulk-upsert), `repairReportSchema` (диагностика + `autoFix=true` для удаления битых ссылок), `removeSettingsItem`, `removeDataSet`, `removeSchemaParameter`, `removeSchemaItem`.
 - **Картинки:** `listPictures` (read-only каталог StdPicture платформы — substring-поиск EN/RU).
 
-### Сборка и обновление ИБ (2)
+### Сборка и обновление ИБ (4)
 
 | Tool | Зачем | Ключевые параметры |
 |---|---|---|
 | `rebuild_project` | Полная пересборка проекта (`IProject.build(FULL_BUILD)`), опц. `cleanBuild=true`. После билда ждёт завершения build-job'ов (join MANUAL/AUTO_BUILD), чтобы счётчик маркеров был стабильным, а не транзиентно завышенным после cleanBuild. Возвращает счётчики Eclipse problem markers + customChecks. | `projectName`, опц. `cleanBuild`, `extendedChecks` |
 | `sync_database` | Headless `Run → Update → Update Database`. Параметры `updateType=INCREMENTAL|FULL`, `skipIfUpdated`, `checkOnly`. **Требует UI Shell** (используется первый available). | `projectName`, опц. `applicationId`, `updateType`, `skipIfUpdated`, `checkOnly`, `wait_seconds` |
+| `refresh_workspace` | Подхватить **внешние** изменения файлов на диске: `IProject.refreshLocal(INFINITE)` + инкрементальный билд с join build-job'ов, чтобы BM-модель EDT переимпортировала изменённые `.mdo`/`.bsl`. Зачем: после `git checkout`/`pull` через shell при открытом EDT воркспейс не замечает правок → read-инструменты отдают stale из кэша BM; этот tool ресинхронит модель с диском. Без правок — безопасный no-op. Без `projectName` — все открытые проекты. | опц. `projectName`, `build=true` |
+| `get_event_log` | Журнал регистрации файловой ИБ (текстовый формат `1Cv8.lgf`+`.lgp`), **без запуска базы**. Диагностика рантайма после `run_yaxunit`/запуска: свежие ошибки/события с фильтром по важности (`Error`/`Warning`/...), периоду (`from`/`to` ISO), пользователю, приложению, событию, подстроке комментария. Каталог резолвится из `projectName` (файловая ИБ → `/1Cv8Log`) или явным `logDir` (серверная ИБ — только через `logDir`). Пагинация `limit`/`offset`, `order=desc\|asc`. **Записи содержат ПДн** — включай PII-фильтр при работе с облачной моделью. | опц. `projectName`\|`logDir`, `infobaseId`, `severity[]`, `from`/`to`, `user[]`/`application[]`/`event[]`, `commentContains`, `limit`/`offset`/`order` |
 
 ### yaxunit + отладка (16)
 
@@ -299,7 +303,8 @@ validate_query queryText="ВЫБРАТЬ ... ИЗ Справочник.X" isDcs=
 
 ```
 curl http://127.0.0.1:6868/health
-→ {"status":"ok","tools":39}
+→ {"status":"ok","tools":43}
 ```
 
 Если 404 / connection refused → EDT не запущен или bundle не активирован (при первой установке — разовый `-clean` рестарт).
+
