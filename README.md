@@ -42,32 +42,45 @@ API для запуска и отладки yaxunit-тестов.
 
 ## Установка
 
-Плагин поставляется готовым jar-файлом (drop-in bundle) в разделе
-[Releases](../../releases).
+### Через update-site (рекомендуется)
 
-1. Скачайте `io.github.sekam68.edt.companion.mcp-<версия>.jar` из последнего
-   релиза.
-2. Скопируйте jar в каталог `dropins` вашей установки 1C:EDT. Типичный путь:
+Стандартный механизм Eclipse. В 1C:EDT: **Help → Install New Software…**, в поле
+*Work with* укажите адрес репозитория обновлений:
+
+```
+https://sekam68.github.io/edt-companion-mcp/
+```
+
+Отметьте фичу edt-companion-mcp, пройдите мастер и перезапустите EDT.
+Обновления ставятся тем же путём (**Help → Check for Updates**).
+
+### Через drop-in jar (альтернатива)
+
+1. Скачайте `io.github.sekam68.edt.companion.mcp-<версия>.jar` из раздела
+   [Releases](../../releases).
+2. Скопируйте jar в каталог `dropins` установки 1C:EDT. Типичный путь:
 
    ```
    <установка 1C:EDT>/components/1c-edt-<версия>-x86_64/dropins/
    ```
 
    (например `C:/Program Files/1C/1CE/components/1c-edt-2025.2.5+2-x86_64/dropins/`).
-3. Перезапустите 1C:EDT.
-4. Проверьте, что сервер поднялся:
+3. Перезапустите 1C:EDT (при первой установке помогает разовый запуск с `-clean`).
 
-   ```
-   curl http://127.0.0.1:6868/health
-   → {"status":"ok","tools":45}
-   ```
+### Проверка
 
-Если `/health` не отвечает — EDT не запущен, либо bundle не активировался
-(при первой установке помогает разовый запуск EDT с ключом `-clean`).
+```
+curl http://127.0.0.1:6868/health
+→ {"status":"ok","tools":45}
+```
 
-Порт по умолчанию — `127.0.0.1:6868`. Изменить можно без перекомпиляции через
-VM-аргумент `-Dedt.yaxunit.mcp.port=<порт>` (в `1cedt.ini` после `-vmargs`) или
-переменную окружения `EDT_YAXUNIT_MCP_PORT`. System property имеет приоритет.
+Если `/health` не отвечает — EDT не запущен либо bundle не активировался.
+
+Порт по умолчанию — `127.0.0.1:6868`. Меняется прямо в **Window → Preferences →
+edt-companion-mcp** (поле «TCP-порт», применяется сразу, без перезапуска EDT).
+Для headless/CI порт можно задать VM-аргументом `-Dedt.yaxunit.mcp.port=<порт>`
+(в `1cedt.ini` после `-vmargs`) или переменной окружения `EDT_YAXUNIT_MCP_PORT` —
+они имеют приоритет над значением на странице настроек.
 
 ## Подключение AI-агента
 
