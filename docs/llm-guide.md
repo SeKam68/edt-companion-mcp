@@ -4,7 +4,7 @@
 
 ## Что это
 
-OSGi-плагин для 1C:EDT 2025.2, который поднимает локальный MCP-сервер `http://127.0.0.1:6868/mcp` и отдаёт **43 инструментов** для работы с открытой в EDT конфигурацией 1С: чтение метаданных и BSL-кода, навигация, поиск, валидация, редактирование метаданных и BSL-модулей, запуск и отладка yaxunit-тестов, проверка запросов, поиск в платформенной документации.
+OSGi-плагин для 1C:EDT 2025.2, который поднимает локальный MCP-сервер `http://127.0.0.1:6868/mcp` и отдаёт **45 инструментов** для работы с открытой в EDT конфигурацией 1С: чтение метаданных и BSL-кода, навигация, поиск, валидация и быстрые исправления, редактирование метаданных и BSL-модулей, запуск и отладка yaxunit-тестов, профилирование, проверка запросов (с резолвом метаданных), поиск в платформенной документации.
 
 Инструменты работают **только над тем workspace, который сейчас открыт в EDT** — отдельного процесса 1С/EDT плагин не поднимает. Если EDT закрыт — `/health` недоступен.
 
@@ -24,7 +24,7 @@ OSGi-плагин для 1C:EDT 2025.2, который поднимает лок
 }
 ```
 
-Протокол — JSON-RPC 2.0. Поддержаны методы `initialize`, `tools/list`, `tools/call`. Проверка живости: `GET http://127.0.0.1:6868/health` → `{"status":"ok","tools":43}`.
+Протокол — JSON-RPC 2.0. Поддержаны методы `initialize`, `tools/list`, `tools/call`. Проверка живости: `GET http://127.0.0.1:6868/health` → `{"status":"ok","tools":45}`.
 
 ### Два экземпляра EDT с разными проектами
 
@@ -82,7 +82,7 @@ OSGi-плагин для 1C:EDT 2025.2, который поднимает лок
 |---|---|---|
 | `write_module_source` | Запись BSL-модуля через **shared Eclipse text buffer** — попадает в тот же dirty buffer, который видит открытый Xtext-редактор EDT. То есть: если у пользователя открыт редактор и в нём несохранённые правки, наша запись применяется поверх dirty state (а не перезатирает диск конфликтом). 6 режимов: `replace` (полная замена/создание файла), `append`, `insertBefore`/`insertAfter` (по `line`, 1-based), `replaceLines` (`startLine`+`endLine` inclusive), `searchReplace` (literal find→text + `expectMatches` контроль безопасности — по умолчанию ровно 1 совпадение; **переводы строк `find`/`text` нормализуются к делимитеру модуля** — многострочный LF-фрагмент из read-инструментов корректно матчится к CRLF-модулю и не подмешивает LF). Параметр `save` (default `true`) — commit buffer на диск; `false` оставляет в editor dirty state, пользователь сохранит Ctrl+S. `dryRun` для what-if. В ответе `oldLength`/`newLength`/`startLine`/`endLine`/`dirty`/`saved`/`created`. **Tier: PRO**. | `modulePath`, `mode`, `text`, опц. `line`/`startLine`+`endLine`/`find`+`expectMatches`/`save`/`dryRun` |
 
-### Анализ кода (4)
+### Анализ кода (5)
 
 | Tool | Зачем | Ключевые параметры |
 |---|---|---|
@@ -90,12 +90,13 @@ OSGi-плагин для 1C:EDT 2025.2, который поднимает лок
 | `get_method_call_hierarchy` | Callers/callees BSL-метода до depth=5. | `projectName`, `methodName`, опц. `modulePath`, `direction=callers|callees` |
 | `get_validation_errors` | Маркеры EDT-валидации (НЕ Eclipse problems). Принимает и Configuration-, и Extension-проекты. | `projectName`, опц. `scope=project|object`, `fqn`, `minSeverity=BLOCKER|CRITICAL|MAJOR|MINOR|TRIVIAL` |
 | `get_check_description` | Человекочитаемое описание проверки EDT по `checkId` (из `get_validation_errors`) или короткому коду `SU..`: `title`, `description`, `severity`, `type`, `shortUid`, имена параметров. Источник — встроенный `ICheckRepository`, всё офлайн (код наружу не уходит, в отличие от `v8std_explain_diagnostics`). Для BSL compile-маркеров (Syntax/undefined) описания в репозитории нет. | `checkId`, опц. `projectName` |
+| `apply_quick_fix` | Применяет быстрое исправление EDT к **model-маркеру** из `get_validation_errors` (source=model, проверки SU*). `dryRun=true` (по умолчанию) — перечислить применимые варианты (`variants[].index/description/details`), ничего не меняя; `dryRun=false`+`variantIndex` — применить. `markerObjectId` — из ответа `get_validation_errors`. Через штатный `IFixManager` (`com.e1c.g5.v8.dt.check.qfix`). Builder-маркеры (Syntax/undefined, source=builder) не поддержаны — программного fix-API нет. **Tier: PRO**. | `markerObjectId`, опц. `projectName`, `checkId`, `variantIndex`, `dryRun` |
 
 ### Валидация запросов (1)
 
 | Tool | Зачем | Ключевые параметры |
 |---|---|---|
-| `validate_query` | Проверка текста запроса штатным Xtext-парсером EDT (RU/EN ключевые слова). Только синтаксис + типовые QL-проверки, без semantic linking к метаданным. | `queryText`, опц. `isDcs=true` (грамматика QlDcs) |
+| `validate_query` | Проверка текста запроса штатным Xtext-парсером EDT (RU/EN ключевые слова). Без `projectName` — только синтаксис + типовые QL-проверки. С существующим открытым `projectName` — **metadata-aware**: ссылки на таблицы/поля конфигурации (`Справочник.X` и т.п.) резолвятся по BM-индексу проекта (нерезолвленная таблица → ошибка). В ответе флаг `metadataAware`. | `queryText`, опц. `isDcs=true` (грамматика QlDcs), `projectName` |
 
 ### Редактирование метаданных (3)
 
@@ -134,7 +135,7 @@ OSGi-плагин для 1C:EDT 2025.2, который поднимает лок
 | `refresh_workspace` | Подхватить **внешние** изменения файлов на диске: `IProject.refreshLocal(INFINITE)` + инкрементальный билд с join build-job'ов, чтобы BM-модель EDT переимпортировала изменённые `.mdo`/`.bsl`. Зачем: после `git checkout`/`pull` через shell при открытом EDT воркспейс не замечает правок → read-инструменты отдают stale из кэша BM; этот tool ресинхронит модель с диском. Без правок — безопасный no-op. Без `projectName` — все открытые проекты. | опц. `projectName`, `build=true` |
 | `get_event_log` | Журнал регистрации файловой ИБ (текстовый формат `1Cv8.lgf`+`.lgp`), **без запуска базы**. Диагностика рантайма после `run_yaxunit`/запуска: свежие ошибки/события с фильтром по важности (`Error`/`Warning`/...), периоду (`from`/`to` ISO), пользователю, приложению, событию, подстроке комментария. Каталог резолвится из `projectName` (файловая ИБ → `/1Cv8Log`) или явным `logDir` (серверная ИБ — только через `logDir`). Пагинация `limit`/`offset`, `order=desc\|asc`. **Записи содержат ПДн** — включай PII-фильтр при работе с облачной моделью. | опц. `projectName`\|`logDir`, `infobaseId`, `severity[]`, `from`/`to`, `user[]`/`application[]`/`event[]`, `commentContains`, `limit`/`offset`/`order` |
 
-### yaxunit + отладка (16)
+### yaxunit + отладка (17)
 
 Цикл: `addBreakpoint` → `run_yaxunit mode=debug` → (на BP) `getState` → `getVariables` → `evaluate` → `resume` → `Done` или следующий BP → `get_yaxunit_report`.
 
@@ -149,6 +150,7 @@ OSGi-плагин для 1C:EDT 2025.2, который поднимает лок
 | `getVariables` | Локалки кадра стека. | `threadId`, `frameIndex` |
 | `evaluate` | Произвольное BSL-выражение через `IWatchExpressionDelegate`. Поддерживает function calls (`Константы.X.Получить()`), арифметику, переменные. Fallback — локальный lookup `Var.Prop.Sub`. | `threadId`, `frameIndex`, `expression` |
 | `resume`, `suspend`, `stepOver`, `stepInto`, `stepReturn`, `terminate` | Управление debug — стандартный Eclipse Debug API. | опц. `threadId` |
+| `get_profiling_results` | Результаты профилирования 1С через штатный `IProfilingService`: тайминги + счётчики вызовов (`frequency`) по строкам модулей. `action=results` (по умолчанию) — топ-N строк по `sortBy` (`duration`/`frequency`/`percentage`); `start`/`stop` — переключить профилирование на активном debug-target (нужна отладка с поддержкой профилирования); `clear` — очистить. **Tier: PRO**. | опц. `action`, `sortBy`, `limit` |
 
 ### Документация (2)
 
@@ -303,7 +305,7 @@ validate_query queryText="ВЫБРАТЬ ... ИЗ Справочник.X" isDcs=
 
 ```
 curl http://127.0.0.1:6868/health
-→ {"status":"ok","tools":43}
+→ {"status":"ok","tools":45}
 ```
 
 Если 404 / connection refused → EDT не запущен или bundle не активирован (при первой установке — разовый `-clean` рестарт).

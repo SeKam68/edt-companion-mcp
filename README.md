@@ -1,7 +1,7 @@
 # edt-companion-mcp
 
 HTTP MCP-сервер внутри 1C:EDT. OSGi-плагин поднимает локальный сервер на
-`http://127.0.0.1:6868/mcp` (JSON-RPC 2.0 + MCP) и отдаёт **43 инструментов**,
+`http://127.0.0.1:6868/mcp` (JSON-RPC 2.0 + MCP) и отдаёт **45 инструментов**,
 через которые AI-агент (Claude Code, Cursor, Cline, любой MCP-клиент) видит то
 же, что видит сам EDT: типизированную метамодель, BSL-код с несохранёнными
 правками открытых редакторов, структуру форм, СКД, XDTO, а также Eclipse Debug
@@ -59,7 +59,7 @@ API для запуска и отладки yaxunit-тестов.
 
    ```
    curl http://127.0.0.1:6868/health
-   → {"status":"ok","tools":43}
+   → {"status":"ok","tools":45}
    ```
 
 Если `/health` не отвечает — EDT не запущен, либо bundle не активировался
@@ -116,7 +116,7 @@ MCP-клиента):
 Формат правила: `{ "enabled", "scope": "VALUE", "countable", "representation", "regex" }`
 (`countable:false` — плоская маска, `countable:true` — псевдоним).
 
-## Каталог инструментов (43)
+## Каталог инструментов (45)
 
 | Группа | Инструменты |
 |---|---|
@@ -124,14 +124,14 @@ MCP-клиента):
 | Чтение BSL | `read_module_source`, `read_method_source`, `get_module_structure`, `search_in_code`, `resolve_symbol` |
 | Запись BSL | `write_module_source` |
 | Метаданные (чтение) | `list_metadata_objects`, `list_modules`, `get_object_details`, `get_form_layout`, `get_form_screenshot`, `get_config_properties` |
-| Анализ | `find_object_references`, `get_method_call_hierarchy`, `get_validation_errors`, `get_check_description` |
+| Анализ | `find_object_references`, `get_method_call_hierarchy`, `get_validation_errors`, `get_check_description`, `apply_quick_fix` |
 | Редактирование метаданных | `edit_metadata` (единый диспетчер операций) |
 | XDTO | `read_xdto_package`, `edit_xdto_package` |
 | Сборка и ИБ | `rebuild_project`, `sync_database`, `get_event_log`, `refresh_workspace` |
 | Запросы | `validate_query` |
 | Документация платформы | `get_object_help`, `get_platform_docs` |
 | yaxunit | `run_yaxunit`, `get_yaxunit_report` |
-| Отладка | `addBreakpoint`, `removeBreakpoint`, `listBreakpoints`, `getState`, `getVariables`, `evaluate`, `resume`, `suspend`, `stepOver`, `stepInto`, `stepReturn`, `terminate` |
+| Отладка | `addBreakpoint`, `removeBreakpoint`, `listBreakpoints`, `getState`, `getVariables`, `evaluate`, `resume`, `suspend`, `stepOver`, `stepInto`, `stepReturn`, `terminate`, `get_profiling_results` |
 
 > **`get_form_screenshot`** требует native-buffered рендера форм: добавьте в
 > `1cedt.ini` после строки `-vmargs` две строки
