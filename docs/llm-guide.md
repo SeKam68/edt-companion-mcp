@@ -36,7 +36,7 @@ OSGi-плагин для 1C:EDT 2025.2 / 2026.1, который поднимае
 - **FQN формы** — `Catalog.X.Form.ФормаЭлемента`, `Document.Y.Form.ФормаСписка`.
 - **FQN макета** — `Catalog.X.Template.Печать` (associated) или `CommonTemplate.УниверсальныйМакет` (top-level).
 - **Nested FQN** в `edit_metadata.setObjectProperty` — пары `<Kind>.<Name>` после top: `Document.X.TabularSection.Y`, `Document.X.TabularSection.Y.Attribute.Z`, `Catalog.X.Form.Y`, `Catalog.X.Template.Z`, `AccumulationRegister.X.Dimension.D`, `Enum.X.EnumValue.V`. Поддержаны kind'ы: `TabularSection`, `Attribute`, `Form`, `Template`, `Command`, `Dimension`, `Resource`, `EnumValue`, `AccountingFlag`, `ExtDimensionAccountingFlag`, `AddressingAttribute`, `Column`, `Operation`, `Recalculation`. `forceExport` всегда бьёт по top-FQN.
-- **workspacePath модуля BSL** — путь от корня workspace через `/`, начинается со слэша: `/WMS/src/CommonModules/ОбщегоНазначения/Module.bsl`, `/WMS/src/Catalogs/Контрагенты/ObjectModule.bsl`, `/WMS/src/Catalogs/Контрагенты/Forms/ФормаЭлемента/Module.bsl`. **Это не путь в git-репозитории:** корень проекта конфигурации соответствует каталогу `src/cf` репозитория, поэтому сегмента `cf/src` в workspace-пути нет (у расширения — аналогично `src/cfe/<Имя>`). Путь в репозиторной раскладке инструменты примут и сами приведут к workspace-виду (в ответе `pathNormalizedFrom` + `warning`), но полагаться на это не стоит — надёжнее адресоваться парой `objectName` + `moduleType`.
+- **workspacePath модуля BSL** — путь от корня workspace через `/`, начинается со слэша: `/Демо/src/CommonModules/ОбщегоНазначения/Module.bsl`, `/Демо/src/Catalogs/Контрагенты/ObjectModule.bsl`, `/Демо/src/Catalogs/Контрагенты/Forms/ФормаЭлемента/Module.bsl`. **Это не путь в git-репозитории:** корень проекта конфигурации соответствует каталогу `src/cf` репозитория, поэтому сегмента `cf/src` в workspace-пути нет (у расширения — аналогично `src/cfe/<Имя>`). Путь в репозиторной раскладке инструменты примут и сами приведут к workspace-виду (в ответе `pathNormalizedFrom` + `warning`), но полагаться на это не стоит — надёжнее адресоваться парой `objectName` + `moduleType`.
 - **`projectName`** — имя проекта в EDT workspace (получи через `list_workspace_projects`), не FQN.
 - **`applicationId`** — отображаемое имя 1С Run Configuration (`list_applications`), не technical ID.
 - **`dryRun: true`** поддержан большинством мутирующих операций — выполни сначала в dry-run, посмотри payload, потом без флага.
@@ -255,7 +255,7 @@ OSGi-плагин для 1C:EDT 2025.2 / 2026.1, который поднимае
 
 ```
 1. edit_metadata adoptObject
-     projectName="WMS", extensionName="WMS.ext",
+     projectName="Демо", extensionName="Демо.ext",
      fqn="Catalog.Контрагенты"                  → top-объект
 2. edit_metadata adoptChild
      parentFqn="Catalog.Контрагенты", childKind="Attribute", name="ИНН"
