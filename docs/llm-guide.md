@@ -60,8 +60,8 @@ OSGi-плагин для 1C:EDT 2025.2 / 2026.1, который поднимае
 | `list_metadata_objects` | Перечислить top-level объекты конфигурации (с фильтрами по типу/regexp). Принимает и Configuration- (cf), и Extension-проект (cfe). | `projectName` (cf/cfe), опц. `objectType` (EClass), `namePattern` (Java regex, case-insensitive), `limit` |
 | `list_modules` | BSL-модули объекта или всех объектов; фильтр по виду модуля (`kind`: `commonModule`/`managerModule`/`objectModule`/`recordSetModule`/`valueManagerModule`/`commandModule`). Принимает и Configuration- (cf), и Extension-проект (cfe). | `projectName` (cf/cfe), опц. `objectName`, `kindFilter` |
 | `get_object_details` | Принимает и Configuration-, и Extension-проект. Полная структура: реквизиты с типами, ТЧ, измерения/ресурсы, формы, команды, макеты, модули. Скалярные флаги карточки объекта (отдаются с учётом дефолта платформы, даже когда тега нет в `.mdo`): `fullTextSearch`, `useStandardCommands`, `includeInCommandInterface`, `dataLockControlMode`; для Document — `numberType`/`numberLength`/`numberPeriodicity`/`postInPrivilegedMode`/...; для Catalog — `codeType`/`codeLength`/`hierarchical`/`hierarchyType`/...; ссылочные списки `owners`/`basedOn` (массив FQN). Для регистров — `informationRegisterPeriodicity`/`writeMode`/`registerType`/... (от них зависит виртуальная таблица `СрезПоследних`/`Остатки`/...). Для Catalog/ChartOfCharacteristicTypes/ChartOfAccounts/ChartOfCalculationTypes — `predefinedItems` (дерево). Через FQN. | `projectName`, `fqn` |
-| `get_config_properties` | Шапка конфигурации: vendor, version, compatibilityMode, scriptVariant + `objectCounts` по всем типам. | `projectName` |
-| `get_form_layout` | Принимает и Configuration-, и Extension-проект. Headless-дамп управляемой формы (без открытия редактора): `attributes`, `items` рекурсивно, `formCommands`, `handlers`. | `projectName`, `fqn` (родитель), `formName`, опц. `format=tree|json`, `includeHandlers`, `maxDepth` |
+| `get_config_properties` | Шапка конфигурации: vendor, version, compatibilityMode, scriptVariant + режим запуска (`defaultRunMode`, `useManagedFormInOrdinaryApplication`, `interfaceCompatibilityMode`, `modalityUseMode`, `synchronousPlatformExtensionAndAddInCallUseMode`), `formCounts` (managed/ordinary) и `objectCounts` по всем типам. | `projectName` |
+| `get_form_layout` | Принимает и Configuration-, и Extension-проект. Headless-дамп управляемой формы (без открытия редактора): `attributes`, `items` рекурсивно, `formCommands`, `handlers`. По **обычной** форме отдаёт `layoutAvailable:false` + причину и `modulePath` (см. «Обычные формы»), пустых секций не выводит. | `projectName`, `fqn` (родитель), `formName`, опц. `format=tree|json`, `includeHandlers`, `maxDepth` |
 | `get_form_screenshot` | **PNG-рендер** формы из WYSIWYG-редактора EDT (визуально «увидеть» раскладку — перекрытия, пустоты, реальные размеры) в дополнение к структурному `get_form_layout`. Открывает `.form` в редакторе, ждёт асинхронную загрузку (до ~минуты) и снимает буфер. Ответ — MCP `image` (PNG base64) + текстовый спутник (`width`/`height`/`renderedForm`). **Требует** активного workbench (не headless) и native-buffered рендера: в `1cedt.ini` после `-vmargs` добавить `-DnativeFormLayoutRender=true` и `-DnativeFormBufferedLayoutRender=true`, иначе буфер пуст. | `projectName`, `fqn` (родитель), `formName` |
 
 ### Навигация по BSL-коду (5)
@@ -73,7 +73,7 @@ OSGi-плагин для 1C:EDT 2025.2 / 2026.1, который поднимае
 | `read_module_source` | Текст BSL-модуля с построчной пагинацией. Большие модули (БСП 1500+ строк) не валятся по token-лимиту: без `limit` возвращается первая порция ≤~48k символов с `truncated:true` + `nextOffset` для дочитывания. В ответе `totalLines`/`totalChars`/`returnedLines`. Адресация: `modulePath` **или** `objectName` (`Type.Name`) + `moduleType` (+ `projectName`) — путь резолвится сам (для CommonModule `moduleType` необязателен). | `modulePath` \| `objectName`+`moduleType`, опц. `offset`/`limit`, `maxChars`, `projectName` |
 | `get_module_structure` | Процедуры/функции (имя, kind, export, async, параметры, диапазон строк) + регионы. Сначала структура — потом точечно `read_method_source`. Адресация: `modulePath` **или** `objectName`+`moduleType` (+ `projectName`), как у `read_module_source`. | `modulePath` \| `objectName`+`moduleType`, опц. `projectName` |
 | `read_method_source` | Текст одной процедуры/функции — экономит контекст vs `read_module_source`. | `modulePath`, `methodName` |
-| `search_in_code` | Workspace-wide или per-project текстовый/regex-поиск по `*.bsl`. До 500 матчей. | `query`, опц. `projectName`, `caseSensitive`, `regex`, `limit` |
+| `search_in_code` | Workspace-wide или per-project текстовый/regex-поиск по `*.bsl` **и по модулям обычных форм внутри `Form.oform`** (совпадения помечены `source:"oform"`, `openable:false`). До 500 матчей. | `query`, опц. `projectName`, `caseSensitive`, `regex`, `limit` |
 | `resolve_symbol` | Резолв символа по позиции (line+column или offset) к декларации. | `modulePath`, `line`+`column` или `offset` |
 
 ### Запись BSL (1)
@@ -289,6 +289,55 @@ validate_query queryText="ВЫБРАТЬ ... ИЗ Справочник.X" isDcs=
 
 Для запросов в схеме СКД — `isDcs=true`. RU и EN ключевые слова поддержаны.
 
+## Обычные (неуправляемые) формы
+
+Конфигурации с `defaultRunMode = OrdinaryApplication` (или просто со старыми
+формами внутри) EDT импортирует нормально, но **обычную форму в модель не
+поднимает**: и раскладка, и модуль лежат в бинарном `Form.oform` в каталоге
+формы. Ни `.form`, ни `Module.bsl` там нет, API чтения контейнера EDT не даёт.
+На реальной конфигурации это может быть половина кода — 358 обычных форм из
+763 и ~4300 процедур вне BSL-индекса.
+
+Что из этого следует практически:
+
+- **Модуль читается** — `read_module_source`, `read_method_source`,
+  `get_module_structure` принимают путь `.../Forms/<Имя>/Module.bsl`, хотя
+  такого файла на диске нет: текст извлекается из контейнера. В ответе
+  `source:"oform"`, `readOnly:true` и `container` с путём к `Form.oform`.
+- **Записать назад нельзя.** `write_module_source` по такому пути отказывает:
+  модель EDT об изменении не узнает, расхождение вылезет при выгрузке в ИБ.
+  Модуль обычной формы правится в конфигураторе.
+- **`search_in_code` досматривает контейнеры** отдельным проходом. Совпадения
+  из них помечены `source:"oform"`, `container` и `openable:false` — открыть
+  такую позицию в редакторе EDT нечем. Блок `coverage` в ответе появляется
+  только если обычные формы в проекте есть.
+- **`get_form_layout` не строит пустую раскладку**: отдаёт `layoutAvailable:false`
+  с причиной, путь к контейнеру и `modulePath`, которым читается модуль. Секций
+  `attributes`/`items` в ответе нет вовсе — их пустота не должна читаться как
+  «в форме ничего нет».
+- **`get_form_screenshot` отказывает сразу** — рендерить нечего.
+- **`find_object_references` и `get_method_call_hierarchy` неполны** по таким
+  формам: раскладка вне BM, модули вне BSL-индекса. Оба добавляют блок
+  `coverage`, если обычные формы в проекте есть. Перед `removeObject` или
+  переименованием на такой конфигурации проверяй ещё и `search_in_code`.
+- **Создать обычную форму нельзя.** `edit_metadata addForm` принимает только
+  `formType="Managed"`.
+- **`get_config_properties`** отдаёт `defaultRunMode`,
+  `useManagedFormInOrdinaryApplication`, `interfaceCompatibilityMode`,
+  `modalityUseMode`, `synchronousPlatformExtensionAndAddInCallUseMode` и
+  `formCounts` — этого хватает, чтобы с первого вызова понять режим
+  конфигурации. На 8.2-совместимости модальность разрешена, а асинхронные
+  шаблоны БСП не соберутся.
+- **Интерфейсы 8.2** (`interfaceCompatibilityMode = Version8_2`) лежат в
+  `unknown/Interfaces` без `.mdo` — EDT их не моделирует, `list_metadata_objects`
+  их не покажет.
+
+Настройка в Preferences — «Обычные (неуправляемые) формы»: `auto` (по умолчанию;
+применимость определяется наличием `Form.oform` в проекте, на управляемых
+конфигурациях вывод не меняется), `on`, `off`. Аварийное выключение — значение
+`off` или переменная окружения `EDT_COMPANION_ORDINARY_FORMS=off`; отказы с
+внятной причиной при этом остаются, пропадает только чтение контейнеров.
+
 ## Что плагин НЕ делает
 
 - **Не выполняет произвольный BSL в продуктовом 1С** — только evaluate на приостановленном кадре под отладкой.
@@ -298,6 +347,7 @@ validate_query queryText="ВЫБРАТЬ ... ИЗ Справочник.X" isDcs=
 - **Не управляет VCS** — git/svn вне scope.
 - **Не показывает Form Designer как изображение** — `get_form_layout` отдаёт текстовое/JSON-дерево (для LLM это полезнее PNG).
 - **Не покрывает покомпонентный adoption form-item'ов** — формы заимствуются целиком (`adoptObject fqn=...Form.X`), элементы внутри extension-формы добавляются через `addFormItem`.
+- **Не редактирует обычные (неуправляемые) формы и не создаёт их** — ни раскладку, ни модуль. Читать модуль можно, писать нет (см. «Обычные формы» выше).
 
 ## Известные особенности
 
@@ -312,6 +362,7 @@ validate_query queryText="ВЫБРАТЬ ... ИЗ Справочник.X" isDcs=
 - **Extension-проекты в write-операциях.** Все операции `edit_metadata` принимают и Configuration-, и Extension-проект в `projectName` (`isExtension:true` в ответе для cfe). Примитивные типы (`String/Number/Boolean/Date`) в реквизитах расширения резолвятся через базовый проект. Заимствование — `adoptObject`/`adoptChild`/`adoptModule` (через `extensionName`); формы заимствуются целиком (`adoptObject fqn=...Form.X`).
 - **`setObjectProperty propertyPath="name"` для top-объекта НЕ доводится до диска** (меняет только `<name>` в BM/`.mdo`). Для полноценного каскадного переименования используй **`renameObject`** (реализовано через родной EDT-рефакторинг — обновляет файлы/каталог/`Configuration.mdo`/`Rights`/ссылки в BSL/формах). `setObjectProperty(name)` оставляй только для случаев, когда нужно поменять ровно тег без каскада.
 - **Write-операции `edit_metadata` могут таймаутить на стороне MCP-клиента**, но фактически записаться в BM. Повтор «вслепую» создаст дубль — после таймаута сначала read-проверка (`get_form_layout`, `get_object_details`).
+- **`show_edt_version` отдаёт две версии, и это разные вещи.** `projectRuntimeVersion` — версия платформы **проекта** (`DT-INF/PROJECT.PMF` → `Runtime-Version`), `compatibilityMode` — режим совместимости **конфигурации** из `Configuration.mdo`. Они расходятся штатно: проект 8.3.24 может держать конфигурацию на 8.2.13, и допустимый API определяется вторым значением. Прежде поле называлось `compatibilityMode`, а содержало первое — на такой конфигурации выбор API получался неверным.
 - **`evaluate` требует приостановленный кадр.** Без BP — нельзя.
 - **`HTTP 200 + JSON-RPC error -32603`** — реальная ошибка инструмента (например NoClassDefFoundError если bundle не пере-stage'нулся после изменения Require-Bundle). Не игнорируй status=200 — всегда смотри `error` в теле.
 - **Сравни `get_validation_errors` с `rebuild_project.errors`** — это **разные** marker store: первое — EDT validation markers, второе — стандартные Eclipse problem markers (типы, разрешение ссылок). Оба бывают полезны.
