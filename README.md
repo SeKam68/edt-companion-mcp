@@ -1,7 +1,7 @@
 # edt-companion-mcp
 
 HTTP MCP-сервер внутри 1C:EDT. OSGi-плагин поднимает локальный сервер на
-`http://127.0.0.1:6868/mcp` (JSON-RPC 2.0 + MCP) и отдаёт **45 инструментов**,
+`http://127.0.0.1:6868/mcp` (JSON-RPC 2.0 + MCP) и отдаёт **46 инструментов**,
 через которые AI-агент (Claude Code, Cursor, Cline, любой MCP-клиент) видит то
 же, что видит сам EDT: типизированную метамодель, BSL-код с несохранёнными
 правками открытых редакторов, структуру форм, СКД, XDTO, а также Eclipse Debug
@@ -79,7 +79,7 @@ https://sekam68.github.io/edt-companion-mcp/
 
 ```
 curl http://127.0.0.1:6868/health
-→ {"status":"ok","tools":45}
+→ {"status":"ok","tools":46}
 ```
 
 Если `/health` не отвечает — EDT не запущен либо bundle не активировался.
@@ -185,7 +185,7 @@ EDT такую конфигурацию импортирует нормальн�
 Формат правила: `{ "enabled", "scope": "VALUE", "countable", "representation", "regex" }`
 (`countable:false` — плоская маска, `countable:true` — псевдоним).
 
-## Каталог инструментов (45)
+## Каталог инструментов (46)
 
 | Группа | Инструменты |
 |---|---|
@@ -196,7 +196,7 @@ EDT такую конфигурацию импортирует нормальн�
 | Анализ | `find_object_references`, `get_method_call_hierarchy`, `get_validation_errors`, `get_check_description`, `apply_quick_fix` |
 | Редактирование метаданных | `edit_metadata` (единый диспетчер операций) |
 | XDTO | `read_xdto_package`, `edit_xdto_package` |
-| Сборка и ИБ | `rebuild_project`, `sync_database`, `get_event_log`, `refresh_workspace` |
+| Сборка и ИБ | `rebuild_project`, `sync_database`, `job`, `get_event_log`, `refresh_workspace` |
 | Запросы | `validate_query` |
 | Документация платформы | `get_object_help`, `get_platform_docs` |
 | yaxunit | `run_yaxunit`, `get_yaxunit_report` |
