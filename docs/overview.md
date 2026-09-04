@@ -45,7 +45,7 @@ get_validation_errors        // что плохо
 
 ## Установка
 
-См. [README.md](../README.md) → разделы «Установка» и «Подключение AI-агента». Подключается в `.mcp.json` проекта как `http://127.0.0.1:6868/mcp`. Health: `curl http://127.0.0.1:6868/health` → `{"status":"ok","tools":46}`.
+См. [README.md](../README.md) → разделы «Установка» и «Подключение AI-агента». Подключается в `.mcp.json` проекта как `http://127.0.0.1:6868/mcp`. Health: `curl http://127.0.0.1:6868/health` → `{"status":"ok","tools":46,"workspace":"…","projects":[…]}` — поля `workspace` / `projects` называют, какой именно EDT отвечает на порту.
 
 ## Когда не подходит
 

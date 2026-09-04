@@ -79,10 +79,15 @@ https://sekam68.github.io/edt-companion-mcp/
 
 ```
 curl http://127.0.0.1:6868/health
-→ {"status":"ok","tools":46}
+→ {"status":"ok","tools":46,"workspace":"D:\\1C\\workspaces\\Демо",
+   "workspaceName":"Демо","projects":["Демо","Демо.Расширение"]}
 ```
 
 Если `/health` не отвечает — EDT не запущен либо bundle не активировался.
+
+`workspace` / `projects` называют, какой именно EDT отвечает на этом порту, —
+при двух запущенных экземплярах это единственный способ не спутать порты
+(см. [docs/multi-instance.md](docs/multi-instance.md)).
 
 Порт по умолчанию — `127.0.0.1:6868`. Меняется прямо в **Window → Preferences →
 edt-companion-mcp** (поле «TCP-порт», применяется сразу, без перезапуска EDT).
